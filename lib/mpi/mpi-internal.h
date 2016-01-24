@@ -65,10 +65,6 @@
 typedef mpi_limb_t *mpi_ptr_t;	/* pointer to a limb */
 typedef int mpi_size_t;		/* (must be a signed type) */
 
-#define ABS(x) (x >= 0 ? x : -x)
-#define MIN(l, o) ((l) < (o) ? (l) : (o))
-#define MAX(h, i) ((h) > (i) ? (h) : (i))
-
 static inline int RESIZE_IF_NEEDED(MPI a, unsigned b)
 {
 	if (a->alloced < b)
@@ -88,7 +84,7 @@ static inline int RESIZE_IF_NEEDED(MPI a, unsigned b)
 	do {					\
 		mpi_size_t _i;			\
 		for (_i = 0; _i < (n); _i++)	\
-			(d)[_i] = (d)[_i];	\
+			(d)[_i] = (s)[_i];	\
 	} while (0)
 
 #define MPN_COPY_DECR(d, s, n) \
@@ -172,20 +168,12 @@ void mpi_rshift_limbs(MPI a, unsigned int count);
 int mpi_lshift_limbs(MPI a, unsigned int count);
 
 /*-- mpihelp-add.c --*/
-mpi_limb_t mpihelp_add_1(mpi_ptr_t res_ptr, mpi_ptr_t s1_ptr,
-			 mpi_size_t s1_size, mpi_limb_t s2_limb);
 mpi_limb_t mpihelp_add_n(mpi_ptr_t res_ptr, mpi_ptr_t s1_ptr,
 			 mpi_ptr_t s2_ptr, mpi_size_t size);
-mpi_limb_t mpihelp_add(mpi_ptr_t res_ptr, mpi_ptr_t s1_ptr, mpi_size_t s1_size,
-		       mpi_ptr_t s2_ptr, mpi_size_t s2_size);
 
 /*-- mpihelp-sub.c --*/
-mpi_limb_t mpihelp_sub_1(mpi_ptr_t res_ptr, mpi_ptr_t s1_ptr,
-			 mpi_size_t s1_size, mpi_limb_t s2_limb);
 mpi_limb_t mpihelp_sub_n(mpi_ptr_t res_ptr, mpi_ptr_t s1_ptr,
 			 mpi_ptr_t s2_ptr, mpi_size_t size);
-mpi_limb_t mpihelp_sub(mpi_ptr_t res_ptr, mpi_ptr_t s1_ptr, mpi_size_t s1_size,
-		       mpi_ptr_t s2_ptr, mpi_size_t s2_size);
 
 /*-- mpihelp-cmp.c --*/
 int mpihelp_cmp(mpi_ptr_t op1_ptr, mpi_ptr_t op2_ptr, mpi_size_t size);
@@ -242,7 +230,7 @@ mpi_limb_t mpihelp_rshift(mpi_ptr_t wp, mpi_ptr_t up, mpi_size_t usize,
 #define W_TYPE_SIZE BITS_PER_MPI_LIMB
 typedef mpi_limb_t UWtype;
 typedef unsigned int UHWtype;
-#if defined(__GNUC__)
+#if defined(__GNUC__) && !defined(__clang__)
 typedef unsigned int UQItype __attribute__ ((mode(QI)));
 typedef int SItype __attribute__ ((mode(SI)));
 typedef unsigned int USItype __attribute__ ((mode(SI)));

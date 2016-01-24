@@ -28,14 +28,14 @@ static int wiimote_hid_send(struct hid_device *hdev, __u8 *buffer,
 	__u8 *buf;
 	int ret;
 
-	if (!hdev->hid_output_raw_report)
+	if (!hdev->ll_driver->output_report)
 		return -ENODEV;
 
 	buf = kmemdup(buffer, count, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
-	ret = hdev->hid_output_raw_report(hdev, buf, count, HID_OUTPUT_REPORT);
+	ret = hid_hw_output_report(hdev, buf, count);
 
 	kfree(buf);
 	return ret;
@@ -441,8 +441,7 @@ static __u8 wiimote_cmd_read_ext(struct wiimote_data *wdata, __u8 *rmem)
 	if (ret != 6)
 		return WIIMOTE_EXT_NONE;
 
-	hid_dbg(wdata->hdev, "extension ID: %02x:%02x %02x:%02x %02x:%02x\n",
-		rmem[0], rmem[1], rmem[2], rmem[3], rmem[4], rmem[5]);
+	hid_dbg(wdata->hdev, "extension ID: %6phC\n", rmem);
 
 	if (rmem[0] == 0xff && rmem[1] == 0xff && rmem[2] == 0xff &&
 	    rmem[3] == 0xff && rmem[4] == 0xff && rmem[5] == 0xff)
@@ -512,14 +511,12 @@ static bool wiimote_cmd_read_mp(struct wiimote_data *wdata, __u8 *rmem)
 	if (ret != 6)
 		return false;
 
-	hid_dbg(wdata->hdev, "motion plus ID: %02x:%02x %02x:%02x %02x:%02x\n",
-		rmem[0], rmem[1], rmem[2], rmem[3], rmem[4], rmem[5]);
+	hid_dbg(wdata->hdev, "motion plus ID: %6phC\n", rmem);
 
 	if (rmem[5] == 0x05)
 		return true;
 
-	hid_info(wdata->hdev, "unknown motion plus ID: %02x:%02x %02x:%02x %02x:%02x\n",
-		 rmem[0], rmem[1], rmem[2], rmem[3], rmem[4], rmem[5]);
+	hid_info(wdata->hdev, "unknown motion plus ID: %6phC\n", rmem);
 
 	return false;
 }
@@ -535,8 +532,7 @@ static __u8 wiimote_cmd_read_mp_mapped(struct wiimote_data *wdata)
 	if (ret != 6)
 		return WIIMOTE_MP_NONE;
 
-	hid_dbg(wdata->hdev, "mapped motion plus ID: %02x:%02x %02x:%02x %02x:%02x\n",
-		rmem[0], rmem[1], rmem[2], rmem[3], rmem[4], rmem[5]);
+	hid_dbg(wdata->hdev, "mapped motion plus ID: %6phC\n", rmem);
 
 	if (rmem[0] == 0xff && rmem[1] == 0xff && rmem[2] == 0xff &&
 	    rmem[3] == 0xff && rmem[4] == 0xff && rmem[5] == 0xff)
@@ -942,7 +938,7 @@ static bool wiimote_init_check(struct wiimote_data *wdata)
 {
 	__u32 flags;
 	__u8 type, data[6];
-	bool ret, poll_mp = false;
+	bool ret, poll_mp;
 
 	spin_lock_irq(&wdata->state.lock);
 	flags = wdata->state.flags;
@@ -1128,9 +1124,8 @@ static void wiimote_init_hotplug(struct wiimote_data *wdata)
 		wiimote_ext_unload(wdata);
 
 		if (exttype == WIIMOTE_EXT_UNKNOWN) {
-			hid_info(wdata->hdev, "cannot detect extension; %02x:%02x %02x:%02x %02x:%02x\n",
-				 extdata[0], extdata[1], extdata[2],
-				 extdata[3], extdata[4], extdata[5]);
+			hid_info(wdata->hdev, "cannot detect extension; %6phC\n",
+				 extdata);
 		} else if (exttype == WIIMOTE_EXT_NONE) {
 			spin_lock_irq(&wdata->state.lock);
 			wdata->state.exttype = WIIMOTE_EXT_NONE;
@@ -1873,25 +1868,8 @@ static struct hid_driver wiimote_hid_driver = {
 	.remove = wiimote_hid_remove,
 	.raw_event = wiimote_hid_event,
 };
+module_hid_driver(wiimote_hid_driver);
 
-static int __init wiimote_init(void)
-{
-	int ret;
-
-	ret = hid_register_driver(&wiimote_hid_driver);
-	if (ret)
-		pr_err("Can't register wiimote hid driver\n");
-
-	return ret;
-}
-
-static void __exit wiimote_exit(void)
-{
-	hid_unregister_driver(&wiimote_hid_driver);
-}
-
-module_init(wiimote_init);
-module_exit(wiimote_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("David Herrmann <dh.herrmann@gmail.com>");
 MODULE_DESCRIPTION("Driver for Nintendo Wii / Wii U peripherals");

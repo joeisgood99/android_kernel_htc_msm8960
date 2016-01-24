@@ -22,6 +22,16 @@ config INPUT_88PM860X_ONKEY
 	  To compile this driver as a module, choose M here: the module
 	  will be called 88pm860x_onkey.
 
+config INPUT_88PM80X_ONKEY
+	tristate "88PM80x ONKEY support"
+	depends on MFD_88PM800
+	help
+	  Support the ONKEY of Marvell 88PM80x PMICs as an input device
+	  reporting power button status.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called 88pm80x_onkey.
+
 config INPUT_AB8500_PONKEY
 	tristate "AB8500 Pon (PowerOn) Key"
 	depends on AB8500_CORE
@@ -62,6 +72,16 @@ config INPUT_AD714X_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad714x-spi.
 
+config INPUT_ARIZONA_HAPTICS
+	tristate "Arizona haptics support"
+	depends on MFD_ARIZONA && SND_SOC
+	select INPUT_FF_MEMLESS
+	help
+	  Say Y to enable support for the haptics module in Arizona CODECs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called arizona-haptics.
+
 config INPUT_BMA150
 	tristate "BMA150/SMB380 acceleration sensor support"
 	depends on I2C
@@ -72,6 +92,16 @@ config INPUT_BMA150
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called bma150.
+
+config INPUT_E3X0_BUTTON
+	tristate "NI Ettus Research USRP E3xx Button support."
+	default n
+	help
+	  Say Y here to enable support for the NI Ettus Research
+	  USRP E3xx Button.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called e3x0_button.
 
 config INPUT_PCSPKR
 	tristate "PC Speaker support"
@@ -84,6 +114,18 @@ config INPUT_PCSPKR
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called pcspkr.
+
+config INPUT_PM8941_PWRKEY
+	tristate "Qualcomm PM8941 power key support"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y here if you want support for the power key usually found
+	  on boards using a Qualcomm PM8941 compatible PMIC.
+
+	  If unsure, say Y.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pm8941-pwrkey.
 
 config INPUT_PM8XXX_VIBRATOR
 	tristate "Qualcomm PM8XXX vibrator support"
@@ -124,6 +166,17 @@ config INPUT_M68K_BEEP
 	tristate "M68k Beeper support"
 	depends on M68K
 
+config INPUT_MAX77693_HAPTIC
+	tristate "MAXIM MAX77693/MAX77843 haptic controller support"
+	depends on (MFD_MAX77693 || MFD_MAX77843) && PWM
+	select INPUT_FF_MEMLESS
+	help
+	  This option enables support for the haptic controller on
+	  MAXIM MAX77693 and MAX77843 chips.
+
+	  To compile this driver as module, choose M here: the
+	  module will be called max77693-haptic.
+
 config INPUT_MAX8925_ONKEY
 	tristate "MAX8925 ONKEY support"
 	depends on MFD_MAX8925
@@ -136,7 +189,7 @@ config INPUT_MAX8925_ONKEY
 
 config INPUT_MAX8997_HAPTIC
 	tristate "MAXIM MAX8997 haptic controller support"
-	depends on HAVE_PWM && MFD_MAX8997
+	depends on PWM && MFD_MAX8997
 	select INPUT_FF_MEMLESS
 	help
 	  This option enables device driver support for the haptic controller
@@ -148,7 +201,7 @@ config INPUT_MAX8997_HAPTIC
 
 config INPUT_MC13783_PWRBUTTON
 	tristate "MC13783 ON buttons"
-	depends on MFD_MC13783
+	depends on MFD_MC13XXX
 	help
 	  Support the ON buttons of MC13783 PMIC as an input device
 	  reporting power button status.
@@ -194,7 +247,7 @@ config INPUT_APANEL
 config INPUT_GP2A
 	tristate "Sharp GP2AP002A00F I2C Proximity/Opto sensor driver"
 	depends on I2C
-	depends on GENERIC_GPIO
+	depends on GPIOLIB || COMPILE_TEST
 	help
 	  Say Y here if you have a Sharp GP2AP002A00F proximity/als combo-chip
 	  hooked to an I2C bus.
@@ -202,9 +255,18 @@ config INPUT_GP2A
 	  To compile this driver as a module, choose M here: the
 	  module will be called gp2ap002a00f.
 
+config INPUT_GPIO_BEEPER
+	tristate "Generic GPIO Beeper support"
+	depends on GPIOLIB || COMPILE_TEST
+	help
+	  Say Y here if you have a beeper connected to a GPIO pin.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gpio-beeper.
+
 config INPUT_GPIO_TILT_POLLED
 	tristate "Polled GPIO tilt switch"
-	depends on GENERIC_GPIO
+	depends on GPIOLIB || COMPILE_TEST
 	select INPUT_POLLDEV
 	help
 	  This driver implements support for tilt switches connected
@@ -240,7 +302,7 @@ config INPUT_COBALT_BTNS
 
 config INPUT_WISTRON_BTNS
 	tristate "x86 Wistron laptop button interface"
-	depends on X86 && !X86_64
+	depends on X86_32
 	select INPUT_POLLDEV
 	select INPUT_SPARSEKMAP
 	select NEW_LEDS
@@ -279,20 +341,8 @@ config INPUT_ATI_REMOTE2
 	  To compile this driver as a module, choose M here: the module will be
 	  called ati_remote2.
 
-config INPUT_KEYCHORD
-	tristate "Key chord input driver support"
-	help
-	  Say Y here if you want to enable the key chord driver
-	  accessible at /dev/keychord.  This driver can be used
-	  for receiving notifications when client specified key
-	  combinations are pressed.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called keychord.
-
 config INPUT_KEYSPAN_REMOTE
-	tristate "Keyspan DMR USB remote control (EXPERIMENTAL)"
-	depends on EXPERIMENTAL
+	tristate "Keyspan DMR USB remote control"
 	depends on USB_ARCH_HAS_HCD
 	select USB
 	help
@@ -341,7 +391,6 @@ config INPUT_POWERMATE
 
 config INPUT_YEALINK
 	tristate "Yealink usb-p1k voip phone"
-	depends on EXPERIMENTAL
 	depends on USB_ARCH_HAS_HCD
 	select USB
 	help
@@ -357,7 +406,6 @@ config INPUT_YEALINK
 
 config INPUT_CM109
 	tristate "C-Media CM109 USB I/O Controller"
-	depends on EXPERIMENTAL
 	depends on USB_ARCH_HAS_HCD
 	select USB
 	help
@@ -367,6 +415,49 @@ config INPUT_CM109
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called cm109.
+
+config INPUT_REGULATOR_HAPTIC
+	tristate "Regulator haptics support"
+	depends on REGULATOR
+	select INPUT_FF_MEMLESS
+	help
+	  This option enables device driver support for the haptic controlled
+	  by a regulator. This driver supports ff-memless interface
+	  from input framework.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called regulator-haptic.
+
+config INPUT_RETU_PWRBUTTON
+	tristate "Retu Power button Driver"
+	depends on MFD_RETU
+	help
+	  Say Y here if you want to enable power key reporting via the
+	  Retu chips found in Nokia Internet Tablets (770, N800, N810).
+
+	  To compile this driver as a module, choose M here. The module will
+	  be called retu-pwrbutton.
+
+config INPUT_TPS65218_PWRBUTTON
+	tristate "TPS65218 Power button driver"
+	depends on MFD_TPS65218
+	help
+	  Say Y here if you want to enable power buttong reporting for
+	  the TPS65218 Power Management IC device.
+
+	  To compile this driver as a module, choose M here. The module will
+	  be called tps65218-pwrbutton.
+
+config INPUT_AXP20X_PEK
+	tristate "X-Powers AXP20X power button driver"
+	depends on MFD_AXP20X
+	help
+	  Say Y here if you want to enable power key reporting via the
+	  AXP20X PMIC.
+
+	  To compile this driver as a module, choose M here. The module will
+	  be called axp20x-pek.
+
 
 config INPUT_TWL4030_PWRBUTTON
 	tristate "TWL4030 Power button Driver"
@@ -418,23 +509,6 @@ config INPUT_SGI_BTNS
 	  To compile this driver as a module, choose M here: the
 	  module will be called sgi_btns.
 
-config INPUT_GPIO
-	tristate "GPIO driver support"
-	help
-	  Say Y here if you want to support gpio based keys, wheels etc...
-
-config INPUT_ISA1200_FF_MEMLESS
-	tristate "ISA1200 haptic ff-memless support"
-	depends on I2C
-	select INPUT_FF_MEMLESS
-	help
-	  ISA1200 is a high performance enhanced haptic chip.
-	  Say Y here if you want to support ISA1200 connected via I2C,
-	  and select N if you are unsure.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called isa1200-ff-memless.
-
 config HP_SDC_RTC
 	tristate "HP SDC Real Time Clock"
 	depends on (GSC || HP300) && SERIO
@@ -442,6 +516,16 @@ config HP_SDC_RTC
 	help
 	  Say Y here if you want to support the built-in real time clock
 	  of the HP SDC controller.
+
+config INPUT_PALMAS_PWRBUTTON
+	tristate "Palmas Power button Driver"
+	depends on MFD_PALMAS
+	help
+	  Say Y here if you want to enable power key reporting via the
+	  Palmas family of PMICs.
+
+	  To compile this driver as a module, choose M here. The module will
+	  be called palmas_pwrbutton.
 
 config INPUT_PCF50633_PMU
 	tristate "PCF50633 PMU events"
@@ -452,7 +536,7 @@ config INPUT_PCF50633_PMU
 
 config INPUT_PCF8574
 	tristate "PCF8574 Keypad input device"
-	depends on I2C && EXPERIMENTAL
+	depends on I2C
 	help
 	  Say Y here if you want to support a keypad connected via I2C
 	  with a PCF8574.
@@ -462,7 +546,7 @@ config INPUT_PCF8574
 
 config INPUT_PWM_BEEPER
 	tristate "PWM beeper support"
-	depends on HAVE_PWM
+	depends on PWM
 	help
 	  Say Y here to get support for PWM based beeper devices.
 
@@ -473,7 +557,7 @@ config INPUT_PWM_BEEPER
 
 config INPUT_GPIO_ROTARY_ENCODER
 	tristate "Rotary encoders connected to GPIO pins"
-	depends on GPIOLIB && GENERIC_GPIO
+	depends on GPIOLIB || COMPILE_TEST
 	help
 	  Say Y here to add support for rotary encoders connected to GPIO lines.
 	  Check file:Documentation/input/rotary-encoder.txt for more
@@ -485,7 +569,7 @@ config INPUT_GPIO_ROTARY_ENCODER
 config INPUT_RB532_BUTTON
 	tristate "Mikrotik Routerboard 532 button interface"
 	depends on MIKROTIK_RB532
-	depends on GPIOLIB && GENERIC_GPIO
+	depends on GPIOLIB
 	select INPUT_POLLDEV
 	help
 	  Say Y here if you want support for the S1 button built into
@@ -503,6 +587,26 @@ config INPUT_DA9052_ONKEY
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called da9052_onkey.
+
+config INPUT_DA9055_ONKEY
+	tristate "Dialog Semiconductor DA9055 ONKEY"
+	depends on MFD_DA9055
+	help
+	  Support the ONKEY of DA9055 PMICs as an input device
+	  reporting power button status.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called da9055_onkey.
+
+config INPUT_DA9063_ONKEY
+	tristate "Dialog DA9062/63 OnKey"
+	depends on MFD_DA9063 || MFD_DA9062
+	help
+	  Support the ONKEY of Dialog DA9063 and DA9062 Power Management ICs
+	  as an input device capable of reporting the power button status.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called da9063_onkey.
 
 config INPUT_DM355EVM
 	tristate "TI DaVinci DM355 EVM Keypad and IR Remote"
@@ -581,6 +685,16 @@ config INPUT_ADXL34X_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called adxl34x-spi.
 
+config INPUT_IMS_PCU
+	tristate "IMS Passenger Control Unit driver"
+	depends on USB
+	depends on LEDS_CLASS
+	help
+	  Say Y here if you have system with IMS Rave Passenger Control Unit.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ims_pcu.
+
 config INPUT_CMA3000
 	tristate "VTI CMA3000 Tri-axis accelerometer"
 	help
@@ -618,206 +732,68 @@ config INPUT_XEN_KBDDEV_FRONTEND
 	  To compile this driver as a module, choose M here: the
 	  module will be called xen-kbdfront.
 
-config PMIC8058_OTHC
-        tristate "Qualcomm PMIC8058 OTHC support"
-        default n
-        depends on PMIC8058
-        help
-          Say Y here if you want support PMIC8058 OTHC.
-
-          To compile this driver as a module, choose M here: the
-          module will be called pmic8058-othc.
-
-config INPUT_PMIC8058_VIBRA_MEMLESS
-	tristate "Qualcomm PM8058 vibrator support (ff-memless)"
-	depends on PMIC8058 && INPUT_FF_MEMLESS
-	default n
-	help
-	  This option enables device driver support for the vibrator
-	  on Qualcomm PM8058 chip. This driver supports ff-memless interface
-	  from input framework.
-
-	  To compile this driver as module, choose M here: the
-	  module will be called pmic8058-vib-memless.
-
-config BOSCH_BMA150
-        tristate "SMB380/BMA150 acceleration sensor support"
-        depends on I2C=y
-        help
-          If you say yes here you get support for Bosch Sensortec's
-          acceleration sensors SMB380/BMA150.
-
-config STM_LIS3DH
-        tristate "STM LIS3DH acceleration sensor support"
-        depends on I2C=y
-        help
-          If you say yes here you get support for STMicroelectronics's
-          acceleration sensors LIS3DH.
-
-config BMP18X
-       tristate "BMP18X digital pressure sensor"
-       depends on (I2C ) && SYSFS
-       help
-         If you say yes here you get support for Bosch Sensortec
-	 digital pressure sensors BMP085, BMP180.
-
-         To compile this driver as a module, choose M here: the
-         module will be called bmp18x-core.
-
-config BMP18X_I2C
-       tristate "support I2C bus connection"
-       depends on BMP18X && I2C
-       help
-         Say Y here if you want to support Bosch Sensortec digital pressure
-         sensor hooked to an I2C bus.
-
-         To compile this driver as a module, choose M here: the
-         module will be called bmp18x-i2c.
-
-endif
-
-config SENSORS_AKM8963_NST
-	tristate "AK8963 compass support with Magnetic Filed Uncalibrated"
-	default n
-	depends on I2C
-	help
-	  If you say yes here you get support for Asahi Kasei's
-	  orientation sensor AK8963 with Magnetic Filed Uncalibrated.
-
-config SENSORS_AKM8963
-	tristate "AKM8963 compass driver"
-	depends on I2C
-	help
-	  AKM8963 compass driver for HTC.
-
-config SENSORS_AKM8975
-	tristate "AKM8975 compass driver"
-	depends on I2C
-	help
-	  AKM8975 compass driver for HTC.
-
-config SENSORS_PANASONIC_GYRO
-	tristate "Panasonic gyroscope sensor support"
-	depends on I2C
-	help
-	  Panasonic gyroscope driver for HTC
-
-config CIR_ALWAYS_READY
-        bool "BMA250 CIR Always Ready"
-	default n
-	help
-	  Enable CIR Always Ready
-
-config SENSORS_BMA250
-	tristate "BMA250 accelerometer sensor support"
-	depends on I2C
-	help
-	  BMA250 G-sensor driver for HTC
-
-
-config BOSCH_BMA250_ENABLE_INT1
-	tristate "BMA250 acceleration sensor interrupt INT1 support"
-	depends on SENSORS_BMA250_BOSCH=y
-        help
-	  If you say yes here you get INT1 support for Bosch Sensortec's
-	  acceleration sensors BMA250.
-
-config BOSCH_BMA250_ENABLE_INT2
-	tristate "BMA250 acceleration sensor interrupt INT2 support"
-	depends on SENSORS_BMA250_BOSCH=y
-	help
-	  If you say yes here you get INT2 support for Bosch Sensortec's
-	  acceleration sensors BMA250.
-
-config BMA250_WAKE_OPTIONS
-	tristate "BMA250 acceleration sensor wake options support"
-	depends on SENSORS_BMA250_BOSCH=y
-	help
-	  If you say yes here you get Wake option support for
-	  acceleration sensors BMA250
-
-config SENSORS_ONLY_BMA250
-	tristate "BMA250 acceleration sensor support"
-	depends on I2C=y
-	help
-	  BMA250 ONLY G-sensor Driver implemented by HTC.
-
-
-config SENSORS_BMA250_BOSCH
-	tristate "BMA250 accelerometer sensor support (M7)"
-	depends on I2C=y
-	help
-	  If you say yes here you get support for Bosch Sensortec's
-	  BMA250 acceleration sensor.
-
-config SIG_MOTION
-	bool "BMA250 (M7) Significant Motion support"
-	depends on SENSORS_BMA250_BOSCH
+config INPUT_SIRFSOC_ONKEY
+	bool "CSR SiRFSoC power on/off/suspend key support"
+	depends on ARCH_SIRF && OF
 	default y
 	help
-	  Enable BMA250 (M7) significant motion support
+	  Say Y here if you want to support for the SiRFSoC power on/off/suspend key
+	  in Linux, after you press the onkey, system will suspend.
 
-config INPUT_CAPELLA_CM3629
-	tristate "CM3629 proximity and light sensor"
+	  If unsure, say N.
+
+config INPUT_IDEAPAD_SLIDEBAR
+	tristate "IdeaPad Laptop Slidebar"
+	depends on INPUT
+	depends on SERIO_I8042
 	help
-	  Say Y here to enable the CM3629 short distance proximity
-	  sensor with ambient light sensor.
+	  Say Y here if you have an IdeaPad laptop with a slidebar.
 
-config WSENSOR_ENABLE
-	tristate "CM3629 proximity and light sensor"
+	  To compile this driver as a module, choose M here: the
+	  module will be called ideapad_slidebar.
+
+config INPUT_SOC_BUTTON_ARRAY
+	tristate "Windows-compatible SoC Button Array"
+	depends on KEYBOARD_GPIO
 	help
-	  Say Y here to enable the CM3629 Short Distance Proximity
-	  Sensor with Ambient Light Sensor.
+	  Say Y here if you have a SoC-based tablet that originally
+	  runs Windows 8.
 
-config PSENSOR_KTHRESHOLD
-	tristate "CM3629 proximity and light sensor"
+	  To compile this driver as a module, choose M here: the
+	  module will be called soc_button_array.
+
+config INPUT_DRV260X_HAPTICS
+	tristate "TI DRV260X haptics support"
+	depends on INPUT && I2C
+	depends on GPIOLIB || COMPILE_TEST
+	select INPUT_FF_MEMLESS
+	select REGMAP_I2C
 	help
-	  Say Y here to enable the CM3629 Proximity Sensor
-	  set or get threshold value from emmc.
+	  Say Y to enable support for the TI DRV260X haptics driver.
 
-config SENSORS_R3GD20
-	tristate "ST R3GD20 3-axis gyroscope"
-	depends on I2C
+	  To compile this driver as a module, choose M here: the
+	  module will be called drv260x-haptics.
+
+config INPUT_DRV2665_HAPTICS
+	tristate "TI DRV2665 haptics support"
+	depends on INPUT && I2C
+	select INPUT_FF_MEMLESS
+	select REGMAP_I2C
 	help
-	  This driver provides support for the R3GD20 chip which is a 3-axis
-	  gyroscope.
+	  Say Y to enable support for the TI DRV2665 haptics driver.
 
-	  This driver can also be built as a module. If so the module for the
-	  gyroscope will be called r3gd20.
+	  To compile this driver as a module, choose M here: the
+	  module will be called drv2665-haptics.
 
-	  Say Y here if you have a device containing the r3gd20 chip.
-
-config R3GD20_NEW_SENSOR_TYPE
-	bool "R3GD20 New Sensor type"
-	depends on SENSORS_R3GD20
-	default n
+config INPUT_DRV2667_HAPTICS
+	tristate "TI DRV2667 haptics support"
+	depends on INPUT && I2C
+	select INPUT_FF_MEMLESS
+	select REGMAP_I2C
 	help
-	  Enable R3GD20 new sensor type
+	  Say Y to enable support for the TI DRV2667 haptics driver.
 
-config SENSORS_LSM330_ACC
-	tristate "ST LSM330 3-axis accelerometer"
-	depends on I2C=y
-	default n
-	help
-	  This driver provides support for the LSM330 chip which is a
-	  3-axis accelerometer.
+	  To compile this driver as a module, choose M here: the
+	  module will be called drv2667-haptics.
 
-	  This driver can also be built as modules.  If so, the module for
-	  accelerometer will be called lsm330.
-
-	  Say Y here if you have a device containing lsm330 chip.
-
-config SENSORS_LSM330_GYRO
-	tristate "ST LSM330 3-axis gyroscope"
-	depends on I2C=y
-	default n
-	help
-	  This driver provides support for the LSM330 chip which is a
-	  3-axis gyroscope.
-
-	  This driver can also be built as modules.  If so, the module for
-	  accelerometer will be called LSM330.
-
-	  Say Y here if you have a device containing LSM330 chip.
-
-source "drivers/input/misc/mpu3050/Kconfig"
+endif

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2007 Google, Inc.
  * Author: Robert Love <rlove@google.com>
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -20,11 +20,12 @@
 
 #define UART_MR1_AUTO_RFR_LEVEL0	0x3F
 #define UART_MR1_AUTO_RFR_LEVEL1	0x3FF00
-#define UART_MR1_RX_RDY_CTL    		(1 << 7)
-#define UART_MR1_CTS_CTL       		(1 << 6)
+#define UART_DM_MR1_AUTO_RFR_LEVEL1	0xFFFFFF00
+#define UART_MR1_RX_RDY_CTL		BIT(7)
+#define UART_MR1_CTS_CTL		BIT(6)
 
 #define UART_MR2			0x0004
-#define UART_MR2_ERROR_MODE		(1 << 6)
+#define UART_MR2_ERROR_MODE		BIT(6)
 #define UART_MR2_BITS_PER_CHAR		0x30
 #define UART_MR2_BITS_PER_CHAR_5	(0x0 << 4)
 #define UART_MR2_BITS_PER_CHAR_6	(0x1 << 4)
@@ -38,22 +39,7 @@
 #define UART_MR2_PARITY_MODE_SPACE	0x3
 #define UART_MR2_PARITY_MODE		0x3
 
-#define UART_CSR	0x0008
-#define UART_CSR_115200	0xFF
-#define UART_CSR_57600	0xEE
-#define UART_CSR_38400	0xDD
-#define UART_CSR_28800	0xCC
-#define UART_CSR_19200	0xBB
-#define UART_CSR_14400	0xAA
-#define UART_CSR_9600	0x99
-#define UART_CSR_7200	0x88
-#define UART_CSR_4800	0x77
-#define UART_CSR_2400	0x55
-#define UART_CSR_1200	0x44
-#define UART_CSR_600	0x33
-#define UART_CSR_300	0x22
-#define UART_CSR_150	0x11
-#define UART_CSR_75	0x00
+#define UART_CSR			0x0008
 
 #define UART_TF		0x000C
 #define UARTDM_TF	0x0070
@@ -73,22 +59,28 @@
 #define UART_CR_CMD_SET_RFR		(13 << 4)
 #define UART_CR_CMD_RESET_RFR		(14 << 4)
 #define UART_CR_CMD_PROTECTION_EN	(16 << 4)
+#define UART_CR_CMD_STALE_EVENT_DISABLE	(6 << 8)
 #define UART_CR_CMD_STALE_EVENT_ENABLE	(80 << 4)
-#define UART_CR_TX_DISABLE		(1 << 3)
-#define UART_CR_TX_ENABLE		(1 << 2)
-#define UART_CR_RX_DISABLE		(1 << 1)
-#define UART_CR_RX_ENABLE		(1 << 0)
+#define UART_CR_CMD_FORCE_STALE		(4 << 8)
+#define UART_CR_CMD_RESET_TX_READY	(3 << 8)
+#define UART_CR_TX_DISABLE		BIT(3)
+#define UART_CR_TX_ENABLE		BIT(2)
+#define UART_CR_RX_DISABLE		BIT(1)
+#define UART_CR_RX_ENABLE		BIT(0)
+#define UART_CR_CMD_RESET_RXBREAK_START	((1 << 11) | (2 << 4))
 
 #define UART_IMR		0x0014
-#define UART_IMR_TXLEV		(1 << 0)
-#define UART_IMR_RXSTALE	(1 << 3)
-#define UART_IMR_RXLEV		(1 << 4)
-#define UART_IMR_DELTA_CTS	(1 << 5)
-#define UART_IMR_CURRENT_CTS	(1 << 6)
+#define UART_IMR_TXLEV			BIT(0)
+#define UART_IMR_RXSTALE		BIT(3)
+#define UART_IMR_RXLEV			BIT(4)
+#define UART_IMR_DELTA_CTS		BIT(5)
+#define UART_IMR_CURRENT_CTS		BIT(6)
+#define UART_IMR_RXBREAK_START		BIT(10)
 
 #define UART_IPR_RXSTALE_LAST		0x20
 #define UART_IPR_STALE_LSB		0x1F
 #define UART_IPR_STALE_TIMEOUT_MSB	0x3FF80
+#define UART_DM_IPR_STALE_TIMEOUT_MSB	0xFFFFFF80
 
 #define UART_IPR	0x0018
 #define UART_TFWR	0x001C
@@ -100,17 +92,6 @@
 #define UART_DREG		0x0030
 #define UART_MNDREG		0x0034
 #define UART_IRDA		0x0038
-
-#define UART_SIM_CFG			0x003c
-#define UART_SIM_CFG_UIM_TX_MODE	(1 << 17)
-#define UART_SIM_CFG_UIM_RX_MODE	(1 << 16)
-#define UART_SIM_CFG_STOP_BIT_LEN_N(n)	((n) << 8)
-#define UART_SIM_CFG_SIM_CLK_ON		(1 << 7)
-#define UART_SIM_CFG_SIM_CLK_TD8_SEL	(1 << 6)
-#define UART_SIM_CFG_SIM_CLK_STOP_HIGH	(1 << 5)
-#define UART_SIM_CFG_MASK_RX		(1 << 3)
-#define UART_SIM_CFG_SIM_SEL		(1 << 0)
-
 #define UART_MISR_MODE		0x0040
 #define UART_MISR_RESET		0x0044
 #define UART_MISR_EXPORT	0x0048
@@ -118,28 +99,86 @@
 #define UART_TEST_CTRL		0x0050
 
 #define UART_SR			0x0008
-#define UART_SR_HUNT_CHAR	(1 << 7)
-#define UART_SR_RX_BREAK	(1 << 6)
-#define UART_SR_PAR_FRAME_ERR	(1 << 5)
-#define UART_SR_OVERRUN		(1 << 4)
-#define UART_SR_TX_EMPTY	(1 << 3)
-#define UART_SR_TX_READY	(1 << 2)
-#define UART_SR_RX_FULL		(1 << 1)
-#define UART_SR_RX_READY	(1 << 0)
+#define UART_SR_HUNT_CHAR	BIT(7)
+#define UART_SR_RX_BREAK	BIT(6)
+#define UART_SR_PAR_FRAME_ERR	BIT(5)
+#define UART_SR_OVERRUN		BIT(4)
+#define UART_SR_TX_EMPTY	BIT(3)
+#define UART_SR_TX_READY	BIT(2)
+#define UART_SR_RX_FULL		BIT(1)
+#define UART_SR_RX_READY	BIT(0)
 
 #define UART_RF			0x000C
 #define UARTDM_RF		0x0070
 #define UART_MISR		0x0010
 #define UART_ISR		0x0014
-#define UART_ISR_TX_READY	(1 << 7)
+#define UART_ISR_TX_READY	BIT(7)
 
-#define GSBI_CONTROL		0x0
-#define GSBI_PROTOCOL_CODE	0x30
-#define GSBI_PROTOCOL_UART	0x40
-#define GSBI_PROTOCOL_IDLE	0x0
+#define UARTDM_RXFS		0x50
+#define UARTDM_RXFS_BUF_SHIFT	0x7
+#define UARTDM_RXFS_BUF_MASK	0x7
+
+#define UARTDM_DMEN		0x3C
+#define UARTDM_DMEN_RX_SC_ENABLE BIT(5)
+#define UARTDM_DMEN_TX_SC_ENABLE BIT(4)
+
+#define UARTDM_DMEN_TX_BAM_ENABLE BIT(2)	/* UARTDM_1P4 */
+#define UARTDM_DMEN_TX_DM_ENABLE  BIT(0)	/* < UARTDM_1P4 */
+
+#define UARTDM_DMEN_RX_BAM_ENABLE BIT(3)	/* UARTDM_1P4 */
+#define UARTDM_DMEN_RX_DM_ENABLE  BIT(1)	/* < UARTDM_1P4 */
 
 #define UARTDM_DMRX		0x34
 #define UARTDM_NCF_TX		0x40
 #define UARTDM_RX_TOTAL_SNAP	0x38
+
+#define UART_TO_MSM(uart_port)	((struct msm_port *) uart_port)
+
+static inline
+void msm_write(struct uart_port *port, unsigned int val, unsigned int off)
+{
+	writel_relaxed(val, port->membase + off);
+}
+
+static inline
+unsigned int msm_read(struct uart_port *port, unsigned int off)
+{
+	return readl_relaxed(port->membase + off);
+}
+
+/*
+ * Setup the MND registers to use the TCXO clock.
+ */
+static inline void msm_serial_set_mnd_regs_tcxo(struct uart_port *port)
+{
+	msm_write(port, 0x06, UART_MREG);
+	msm_write(port, 0xF1, UART_NREG);
+	msm_write(port, 0x0F, UART_DREG);
+	msm_write(port, 0x1A, UART_MNDREG);
+	port->uartclk = 1843200;
+}
+
+/*
+ * Setup the MND registers to use the TCXO clock divided by 4.
+ */
+static inline void msm_serial_set_mnd_regs_tcxoby4(struct uart_port *port)
+{
+	msm_write(port, 0x18, UART_MREG);
+	msm_write(port, 0xF6, UART_NREG);
+	msm_write(port, 0x0F, UART_DREG);
+	msm_write(port, 0x0A, UART_MNDREG);
+	port->uartclk = 1843200;
+}
+
+static inline
+void msm_serial_set_mnd_regs_from_uartclk(struct uart_port *port)
+{
+	if (port->uartclk == 19200000)
+		msm_serial_set_mnd_regs_tcxo(port);
+	else if (port->uartclk == 4800000)
+		msm_serial_set_mnd_regs_tcxoby4(port);
+}
+
+#define msm_serial_set_mnd_regs msm_serial_set_mnd_regs_from_uartclk
 
 #endif	/* __DRIVERS_SERIAL_MSM_SERIAL_H */

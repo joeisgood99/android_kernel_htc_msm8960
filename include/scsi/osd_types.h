@@ -4,7 +4,7 @@
  * Copyright (C) 2008 Panasas Inc.  All rights reserved.
  *
  * Authors:
- *   Boaz Harrosh <bharrosh@panasas.com>
+ *   Boaz Harrosh <ooo@electrozaur.com>
  *   Benny Halevy <bhalevy@panasas.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,7 @@ struct osd_obj_id {
 	osd_id id;
 };
 
-static const struct __weak osd_obj_id osd_root_object = {0, 0};
+static const struct osd_obj_id osd_root_object __maybe_unused = {0, 0};
 
 struct osd_attr {
 	u32 attr_page;

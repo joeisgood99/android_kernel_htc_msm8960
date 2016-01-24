@@ -4,6 +4,7 @@
  *  Copyright (C) 2001, 2002 Andy Grover <andrew.grover@intel.com>
  *  Copyright (C) 2001, 2002 Paul Diefenbaugh <paul.s.diefenbaugh@intel.com>
  *  Copyright (C) 2002       Dominik Brodowski <devel@brodo.de>
+ *  Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -16,10 +17,6 @@
  *  WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  *  General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -39,11 +36,9 @@
 #include <linux/pci.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
+#include <linux/acpi.h>
 
-#include <acpi/acpi_bus.h>
-#include <acpi/acpi_drivers.h>
-
-#define PREFIX "ACPI: "
+#include "internal.h"
 
 #define _COMPONENT			ACPI_PCI_COMPONENT
 ACPI_MODULE_NAME("pci_link");
@@ -53,23 +48,19 @@ ACPI_MODULE_NAME("pci_link");
 #define ACPI_PCI_LINK_FILE_STATUS	"state"
 #define ACPI_PCI_LINK_MAX_POSSIBLE	16
 
-static int acpi_pci_link_add(struct acpi_device *device);
-static int acpi_pci_link_remove(struct acpi_device *device, int type);
+static int acpi_pci_link_add(struct acpi_device *device,
+			     const struct acpi_device_id *not_used);
+static void acpi_pci_link_remove(struct acpi_device *device);
 
 static const struct acpi_device_id link_device_ids[] = {
 	{"PNP0C0F", 0},
 	{"", 0},
 };
-MODULE_DEVICE_TABLE(acpi, link_device_ids);
 
-static struct acpi_driver acpi_pci_link_driver = {
-	.name = "pci_link",
-	.class = ACPI_PCI_LINK_CLASS,
+static struct acpi_scan_handler pci_link_handler = {
 	.ids = link_device_ids,
-	.ops = {
-		.add = acpi_pci_link_add,
-		.remove = acpi_pci_link_remove,
-	},
+	.attach = acpi_pci_link_add,
+	.detach = acpi_pci_link_remove,
 };
 
 /*
@@ -77,12 +68,12 @@ static struct acpi_driver acpi_pci_link_driver = {
  * later even the link is disable. Instead, we just repick the active irq
  */
 struct acpi_pci_link_irq {
-	u8 active;		/* Current IRQ */
+	u32 active;		/* Current IRQ */
 	u8 triggering;		/* All IRQs */
 	u8 polarity;		/* All IRQs */
 	u8 resource_type;
 	u8 possible_count;
-	u8 possible[ACPI_PCI_LINK_MAX_POSSIBLE];
+	u32 possible[ACPI_PCI_LINK_MAX_POSSIBLE];
 	u8 initialized:1;
 	u8 reserved:7;
 };
@@ -358,6 +349,7 @@ static int acpi_pci_link_set(struct acpi_pci_link *link, int irq)
 
 	}
 	resource->end.type = ACPI_RESOURCE_TYPE_END_TAG;
+	resource->end.length = sizeof(struct acpi_resource);
 
 	/* Attempt to set the resource */
 	status = acpi_set_current_resources(link->device->handle, &buffer);
@@ -446,7 +438,6 @@ static int acpi_pci_link_set(struct acpi_pci_link *link, int irq)
  * enabled system.
  */
 
-#define ACPI_MAX_IRQS		256
 #define ACPI_MAX_ISA_IRQ	16
 
 #define PIRQ_PENALTY_PCI_AVAILABLE	(0)
@@ -456,7 +447,7 @@ static int acpi_pci_link_set(struct acpi_pci_link *link, int irq)
 #define PIRQ_PENALTY_ISA_USED		(16*16*16*16*16)
 #define PIRQ_PENALTY_ISA_ALWAYS		(16*16*16*16*16*16)
 
-static int acpi_irq_penalty[ACPI_MAX_IRQS] = {
+static int acpi_irq_isa_penalty[ACPI_MAX_ISA_IRQ] = {
 	PIRQ_PENALTY_ISA_ALWAYS,	/* IRQ0 timer */
 	PIRQ_PENALTY_ISA_ALWAYS,	/* IRQ1 keyboard */
 	PIRQ_PENALTY_ISA_ALWAYS,	/* IRQ2 cascade */
@@ -473,8 +464,67 @@ static int acpi_irq_penalty[ACPI_MAX_IRQS] = {
 	PIRQ_PENALTY_ISA_USED,		/* IRQ13 fpe, sometimes */
 	PIRQ_PENALTY_ISA_USED,		/* IRQ14 ide0 */
 	PIRQ_PENALTY_ISA_USED,		/* IRQ15 ide1 */
-	/* >IRQ15 */
 };
+
+struct irq_penalty_info {
+	int irq;
+	int penalty;
+	struct list_head node;
+};
+
+static LIST_HEAD(acpi_irq_penalty_list);
+
+static int acpi_irq_get_penalty(int irq)
+{
+	struct irq_penalty_info *irq_info;
+
+	if (irq < ACPI_MAX_ISA_IRQ)
+		return acpi_irq_isa_penalty[irq];
+
+	list_for_each_entry(irq_info, &acpi_irq_penalty_list, node) {
+		if (irq_info->irq == irq)
+			return irq_info->penalty;
+	}
+
+	return 0;
+}
+
+static int acpi_irq_set_penalty(int irq, int new_penalty)
+{
+	struct irq_penalty_info *irq_info;
+
+	/* see if this is a ISA IRQ */
+	if (irq < ACPI_MAX_ISA_IRQ) {
+		acpi_irq_isa_penalty[irq] = new_penalty;
+		return 0;
+	}
+
+	/* next, try to locate from the dynamic list */
+	list_for_each_entry(irq_info, &acpi_irq_penalty_list, node) {
+		if (irq_info->irq == irq) {
+			irq_info->penalty  = new_penalty;
+			return 0;
+		}
+	}
+
+	/* nope, let's allocate a slot for this IRQ */
+	irq_info = kzalloc(sizeof(*irq_info), GFP_KERNEL);
+	if (!irq_info)
+		return -ENOMEM;
+
+	irq_info->irq = irq;
+	irq_info->penalty = new_penalty;
+	list_add_tail(&irq_info->node, &acpi_irq_penalty_list);
+
+	return 0;
+}
+
+static void acpi_irq_add_penalty(int irq, int penalty)
+{
+	int curpen = acpi_irq_get_penalty(irq);
+
+	acpi_irq_set_penalty(irq, curpen + penalty);
+}
 
 int __init acpi_irq_penalty_init(void)
 {
@@ -496,19 +546,19 @@ int __init acpi_irq_penalty_init(void)
 			    link->irq.possible_count;
 
 			for (i = 0; i < link->irq.possible_count; i++) {
-				if (link->irq.possible[i] < ACPI_MAX_ISA_IRQ)
-					acpi_irq_penalty[link->irq.
-							 possible[i]] +=
-					    penalty;
+				if (link->irq.possible[i] < ACPI_MAX_ISA_IRQ) {
+					int irqpos = link->irq.possible[i];
+
+					acpi_irq_add_penalty(irqpos, penalty);
+				}
 			}
 
 		} else if (link->irq.active) {
-			acpi_irq_penalty[link->irq.active] +=
-			    PIRQ_PENALTY_PCI_POSSIBLE;
+			acpi_irq_add_penalty(link->irq.active,
+					     PIRQ_PENALTY_PCI_POSSIBLE);
 		}
 	}
-	/* Add a penalty for the SCI */
-	acpi_irq_penalty[acpi_gbl_FADT.sci_interrupt] += PIRQ_PENALTY_PCI_USING;
+
 	return 0;
 }
 
@@ -557,10 +607,17 @@ static int acpi_pci_link_allocate(struct acpi_pci_link *link)
 		 * the use of IRQs 9, 10, 11, and >15.
 		 */
 		for (i = (link->irq.possible_count - 1); i >= 0; i--) {
-			if (acpi_irq_penalty[irq] >
-			    acpi_irq_penalty[link->irq.possible[i]])
+			if (acpi_irq_get_penalty(irq) >
+			    acpi_irq_get_penalty(link->irq.possible[i]))
 				irq = link->irq.possible[i];
 		}
+	}
+	if (acpi_irq_get_penalty(irq) >= PIRQ_PENALTY_ISA_ALWAYS) {
+		printk(KERN_ERR PREFIX "No IRQ available for %s [%s]. "
+			    "Try pci=noacpi or acpi=off\n",
+			    acpi_device_name(link->device),
+			    acpi_device_bid(link->device));
+		return -ENODEV;
 	}
 
 	/* Attempt to enable the link device at this IRQ. */
@@ -571,7 +628,8 @@ static int acpi_pci_link_allocate(struct acpi_pci_link *link)
 			    acpi_device_bid(link->device));
 		return -ENODEV;
 	} else {
-		acpi_irq_penalty[link->irq.active] += PIRQ_PENALTY_PCI_USING;
+		acpi_irq_add_penalty(link->irq.active, PIRQ_PENALTY_PCI_USING);
+
 		printk(KERN_WARNING PREFIX "%s [%s] enabled at IRQ %d\n",
 		       acpi_device_name(link->device),
 		       acpi_device_bid(link->device), link->irq.active);
@@ -692,7 +750,8 @@ int acpi_pci_link_free_irq(acpi_handle handle)
                                  Driver Interface
    -------------------------------------------------------------------------- */
 
-static int acpi_pci_link_add(struct acpi_device *device)
+static int acpi_pci_link_add(struct acpi_device *device,
+			     const struct acpi_device_id *not_used)
 {
 	int result;
 	struct acpi_pci_link *link;
@@ -720,21 +779,21 @@ static int acpi_pci_link_add(struct acpi_device *device)
 	       acpi_device_bid(device));
 	for (i = 0; i < link->irq.possible_count; i++) {
 		if (link->irq.active == link->irq.possible[i]) {
-			printk(" *%d", link->irq.possible[i]);
+			printk(KERN_CONT " *%d", link->irq.possible[i]);
 			found = 1;
 		} else
-			printk(" %d", link->irq.possible[i]);
+			printk(KERN_CONT " %d", link->irq.possible[i]);
 	}
 
-	printk(")");
+	printk(KERN_CONT ")");
 
 	if (!found)
-		printk(" *%d", link->irq.active);
+		printk(KERN_CONT " *%d", link->irq.active);
 
 	if (!link->device->status.enabled)
-		printk(", disabled.");
+		printk(KERN_CONT ", disabled.");
 
-	printk("\n");
+	printk(KERN_CONT "\n");
 
 	list_add_tail(&link->list, &acpi_link_list);
 
@@ -746,7 +805,7 @@ static int acpi_pci_link_add(struct acpi_device *device)
 	if (result)
 		kfree(link);
 
-	return result;
+	return result < 0 ? result : 1;
 }
 
 static int acpi_pci_link_resume(struct acpi_pci_link *link)
@@ -766,7 +825,7 @@ static void irqrouter_resume(void)
 	}
 }
 
-static int acpi_pci_link_remove(struct acpi_device *device, int type)
+static void acpi_pci_link_remove(struct acpi_device *device)
 {
 	struct acpi_pci_link *link;
 
@@ -777,11 +836,10 @@ static int acpi_pci_link_remove(struct acpi_device *device, int type)
 	mutex_unlock(&acpi_link_lock);
 
 	kfree(link);
-	return 0;
 }
 
 /*
- * modify acpi_irq_penalty[] from cmdline
+ * modify penalty from cmdline
  */
 static int __init acpi_irq_penalty_update(char *str, int used)
 {
@@ -799,13 +857,10 @@ static int __init acpi_irq_penalty_update(char *str, int used)
 		if (irq < 0)
 			continue;
 
-		if (irq >= ARRAY_SIZE(acpi_irq_penalty))
-			continue;
-
 		if (used)
-			acpi_irq_penalty[irq] += PIRQ_PENALTY_ISA_USED;
+			acpi_irq_add_penalty(irq, PIRQ_PENALTY_ISA_USED);
 		else
-			acpi_irq_penalty[irq] = PIRQ_PENALTY_PCI_AVAILABLE;
+			acpi_irq_set_penalty(irq, PIRQ_PENALTY_PCI_AVAILABLE);
 
 		if (retval != 2)	/* no next number */
 			break;
@@ -822,12 +877,36 @@ static int __init acpi_irq_penalty_update(char *str, int used)
  */
 void acpi_penalize_isa_irq(int irq, int active)
 {
-	if (irq >= 0 && irq < ARRAY_SIZE(acpi_irq_penalty)) {
-		if (active)
-			acpi_irq_penalty[irq] += PIRQ_PENALTY_ISA_USED;
-		else
-			acpi_irq_penalty[irq] += PIRQ_PENALTY_PCI_USING;
-	}
+	if (irq >= 0)
+		acpi_irq_add_penalty(irq, active ?
+			PIRQ_PENALTY_ISA_USED : PIRQ_PENALTY_PCI_USING);
+}
+
+bool acpi_isa_irq_available(int irq)
+{
+	return irq >= 0 &&
+		(acpi_irq_get_penalty(irq) < PIRQ_PENALTY_ISA_ALWAYS);
+}
+
+/*
+ * Penalize IRQ used by ACPI SCI. If ACPI SCI pin attributes conflict with
+ * PCI IRQ attributes, mark ACPI SCI as ISA_ALWAYS so it won't be use for
+ * PCI IRQs.
+ */
+void acpi_penalize_sci_irq(int irq, int trigger, int polarity)
+{
+	int penalty;
+
+	if (irq < 0)
+		return;
+
+	if (trigger != ACPI_MADT_TRIGGER_LEVEL ||
+	    polarity != ACPI_MADT_POLARITY_ACTIVE_LOW)
+		penalty = PIRQ_PENALTY_ISA_ALWAYS;
+	else
+		penalty = PIRQ_PENALTY_PCI_USING;
+
+	acpi_irq_add_penalty(irq, penalty);
 }
 
 /*
@@ -874,20 +953,10 @@ static struct syscore_ops irqrouter_syscore_ops = {
 	.resume = irqrouter_resume,
 };
 
-static int __init irqrouter_init_ops(void)
-{
-	if (!acpi_disabled && !acpi_noirq)
-		register_syscore_ops(&irqrouter_syscore_ops);
-
-	return 0;
-}
-
-device_initcall(irqrouter_init_ops);
-
-static int __init acpi_pci_link_init(void)
+void __init acpi_pci_link_init(void)
 {
 	if (acpi_noirq)
-		return 0;
+		return;
 
 	if (acpi_irq_balance == -1) {
 		/* no command line switch: enable balancing in IOAPIC mode */
@@ -896,11 +965,6 @@ static int __init acpi_pci_link_init(void)
 		else
 			acpi_irq_balance = 0;
 	}
-
-	if (acpi_bus_register_driver(&acpi_pci_link_driver) < 0)
-		return -ENODEV;
-
-	return 0;
+	register_syscore_ops(&irqrouter_syscore_ops);
+	acpi_scan_add_handler(&pci_link_handler);
 }
-
-subsys_initcall(acpi_pci_link_init);

@@ -2,19 +2,13 @@
  * relocate_kernel.S - put the kernel image in place to boot
  */
 
+#include <linux/linkage.h>
+#include <asm/assembler.h>
 #include <asm/kexec.h>
 
-#ifdef CONFIG_KEXEC_HARDBOOT
-#include <asm/memory.h>
-#if defined(CONFIG_ARCH_TEGRA_2x_SOC) || defined(CONFIG_ARCH_TEGRA_3x_SOC)
-  #include <mach/iomap.h>
-#elif defined(CONFIG_ARCH_APQ8064)
-  #include <mach/msm_iomap.h>
-#endif
-#endif
+	.align	3	/* not needed for this code, but keeps fncpy() happy */
 
-	.globl relocate_new_kernel
-relocate_new_kernel:
+ENTRY(relocate_new_kernel)
 
 	ldr	r0,kexec_indirection_page
 	ldr	r1,kexec_start_address
@@ -61,54 +55,14 @@ relocate_new_kernel:
 	b 0b
 
 2:
-#ifdef CONFIG_KEXEC_HARDBOOT
-	ldr	r0, kexec_hardboot
-	teq	r0, #0
-	bne	hardboot
-#endif
-
 	/* Jump to relocated kernel */
 	mov lr,r1
 	mov r0,#0
 	ldr r1,kexec_mach_type
 	ldr r2,kexec_boot_atags
- ARM(	mov pc, lr	)
+ ARM(	ret lr	)
  THUMB(	bx lr		)
 
-#ifdef CONFIG_KEXEC_HARDBOOT
-hardboot:
-	/* Stash boot arguments in hardboot page:
-	 *  0: KEXEC_HB_PAGE_MAGIC
-	 *  4: kexec_start_address
-	 *  8: kexec_mach_type
-	 * 12: kexec_boot_atags */
-	ldr	r0, =KEXEC_HB_PAGE_ADDR
-	str	r1, [r0, #4]
-	ldr	r1, kexec_mach_type
-	str	r1, [r0, #8]
-	ldr	r1, kexec_boot_atags
-	str	r1, [r0, #12]
-	ldr	r1, =KEXEC_HB_PAGE_MAGIC
-	str	r1, [r0]
-
-#if defined(CONFIG_ARCH_TEGRA_2x_SOC) || defined(CONFIG_ARCH_TEGRA_3x_SOC)
-	ldr     r0, =TEGRA_PMC_BASE
-	ldr	r1, [r0]
-	orr	r1, r1, #0x10
-	str	r1, [r0]
-loop:	b	loop
-#elif defined(CONFIG_ARCH_APQ8064)
-	/* Restart using the PMIC chip, see mach-msm/restart.c */
-	ldr	r0, =APQ8064_TLMM_PHYS
-	mov	r1, #0
-	str	r1, [r0, #0x820]  @ PSHOLD_CTL_SU
-loop:	b	loop
-#else
-#error "No reboot method defined for hardboot."
-#endif
-
-	.ltorg
-#endif
 	.align
 
 	.globl kexec_start_address
@@ -128,11 +82,7 @@ kexec_mach_type:
 kexec_boot_atags:
 	.long	0x0
 
-#ifdef CONFIG_KEXEC_HARDBOOT
-	.globl kexec_hardboot
-kexec_hardboot:
-	.long	0x0
-#endif
+ENDPROC(relocate_new_kernel)
 
 relocate_new_kernel_end:
 
